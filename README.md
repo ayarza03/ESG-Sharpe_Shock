@@ -1,2 +1,2 @@
 # ESG-Sharpe_Shock
-Analysis of ESG impact on risk-adjusted returns across economic shocks
+ESG Risk-Adjusted Performance in Normal Markets and Under Macroeconomic Stress (2010–2024)
