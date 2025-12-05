@@ -1,29 +1,17 @@
-# Final Project Proposal
+# Proposal for the final project (D&AP25-26)
 ## ESG Risk-Adjusted Performance in Normal Markets and Under Macroeconomic Stress (2010–2024)
-ESG ratings have become increasingly influential in investment decision frameworks, yet empirical
-results remain mixed and often context-dependent. Some studies suggest that high-ESG firms show 
-greater resilience in uncertainty, while others find no performance premium once risk is adjusted.
+Although sustainability, governance quality, and long-term risk exposure are evaluated using ESG scores, it is still unclear if these metrics result in better risk-adjusted financial performance. The goal of this project is to answer the follwing question:
+**Does the ESG rating correlate with risk-adjusted performance under normal market conditions, and if so, how does this relationship behave during macroeconomic shocks?**
 
-Does ESG correlate with superior or inferior risk-adjusted performance under normal market conditions,
-and does this relationship strengthen, weaken or disappear during macroeconomic shocks?
+### --> To answer this question
 
---> What I Will Build
+This project will feature an analysis that estimates the link between ESG scores and Sharpe-adjusted
+returns from a broad sample of public firms for years 2010-2024. The project will be build in two stages.
+Firstly, a baseline estimation of how ESG relates to Sharpe ratio during a stable expansion period from years, from 2010 to 2019.
+The main objective is to establish a neutral reference point for interpretation and further manipulations.
+Secondly, a segmentation of the left timeline into two crisis windows, COVID-19 shock (2020-2021) and an inflation tightening shock. Then, a re-evaluation of the coefficients. The results are expected to reveal whether the ESG–Sharpe relationship observed under normal market conditions changes or keeps stable during periods of macroeconomic stress.
 
-I will develop a reproducible Python-based analysis that estimates the link between ESG scores and Sharpe-adjusted
-returns for a broad sample of public firms from 2010 to 2024. The project will be implemented in two stages.
-First, I will construct a baseline estimate of how ESG relates to Sharpe ratio during a stable expansion period.
-This establishes a neutral reference point for interpretation.
-Second, I will segment the timeline into two crisis windows and re-evaluate the coefficients. These results will
-reveal whether ESG behaves as a defensive factor, loses relevance, or presents no statistically measurable impact in stress environments.
+### --> About the data used
 
-The model and data pipeline will be executed through a structured repository including main.py for reproducibility,
-a data/ module for processing, and results/ for outputs and figures.
-
---> What Data I Will Use
-
-ESG_total and E/S/G sub-scores will be obtained from Yahoo Finance Sustainability fields and/or ESG datasets available
-on Kaggle. Financial price data will be collected via yfinance for 200–400 publicly traded firms, ideally from the S&P 500
-for sector breadth and liquidity.
-
-Monthly returns will be computed from adjusted close prices. Annualized return and volatility will be used to construct Sharpe ratios.
-Controls will include log-market-capitalization and sector classification to reduce confounding effects.
+ESG and E/S/G sub-scores will be obtained from datasets available on public and trusted sources. Financial price data will be collected via 300–500 publicly traded firms, should be from the S&P 500 for a sector-varied and liquidity dataset. Monthly returns will be computed from adjusted close prices. To build the Sharpe ratios, annualized return and volatility will be used.
+To ensure the currect measuring of the ESG ~ Sharpe correlation, there's a need to include control variables such as log-market-capitalization and sector classification in order to reduce confounding effects (a.k.a firm sizes, market distinctions effects).
