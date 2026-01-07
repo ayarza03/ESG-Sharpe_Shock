@@ -4,3 +4,11 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 results/
+# Data (raw + processed)
+data/raw/
+data/processed/
+
+# Optional: large local artifacts
+*.parquet
+*.duckdb
+*.sqlite
