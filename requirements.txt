@@ -4,3 +4,4 @@ yfinance
 matplotlib
 scikit-learn
 pyarrow
+statsmodels>=0.14

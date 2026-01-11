@@ -3,6 +3,7 @@
 # In this section:
 # -- Sets up a reader for the data stocked in .csv files in data/raw
 # -- Cleans the data and stocks the data in different tables
+# -- Sets the timeline and regimes of the project
 # -- Returns clean datasets ready for use and save them in data/processed
 #==========================================================================================================
 
@@ -85,6 +86,44 @@ def load_esg(doc: str): # ESG scores Dataset
 # Set the project´s timeline of study.
 timeline_start = pd.Timestamp("2018-09-01") # Start date: 1 September 2018 
 timeline_end = pd.Timestamp("2024-10-31") # End date: 31 October 2024
+
+#===========================================================================================================
+# Regime definition: Normal (2018.09 - 2020.02) / COVID (2020.03 - 2021.12) / Tightening (2022.01 - 20241.0)
+#===========================================================================================================
+
+r_normal_end = 202002
+r_covid_start = 202003
+r_covid_end = 202112
+r_tight_start = 202201
+
+def add_regime_columns(df: pd.DataFrame, month_col: str = "month_id") -> pd.DataFrame:
+
+    out = df.copy()
+    out[month_col] = pd.to_numeric(out[month_col], errors="coerce").astype("Int64")
+
+    if out[month_col].isna().any():
+        raise ValueError("[DEBUGGER] month_id contains NaN after coercion. Check inputs before adding regimes.")
+
+    mid = out[month_col].astype(int)
+
+    out["year"] = (mid // 100).astype(int)
+    out["month"] = (mid % 100).astype(int)
+
+    out["regime"] = np.select(
+        [
+            mid <= r_normal_end,
+            (mid >= r_covid_start) & (mid <= r_covid_end),
+            mid >= r_tight_start,
+        ],
+        ["normal", "covid", "tightening"],
+        default="unknown",
+    )
+
+    if (out["regime"] == "unknown").any():
+        bad = out.loc[out["regime"] == "unknown", month_col].drop_duplicates().tolist()
+        raise ValueError(f"[DEBUGGER] Some month_id values fall outside regime mapping: {bad[:10]}")
+
+    return out
 
 #==========================================================================================================
 # Creation of Table 0: Top 100 weighted companies of S&P500 from 2018 to 2024 (monthly)
@@ -383,11 +422,15 @@ def build_table_4(table0: pd.DataFrame, table2: pd.DataFrame, table3: pd.DataFra
 
     # Debugger: ensure that market proxy exists in every row
     if table4["rm_proxy"].isna().any() or table4["rm_excess"].isna().any():
-        # Find the rows where rm_proxy is NaN. Then, take the month_id column (ensure there are no duplicates) and make a list
-        missing_months = table4.loc[table4["rm_proxy"].isna(), "month_id"].drop_duplicates().tolist()
-        raise ValueError(f"[DEBUGGER] Missing rm_proxy or rm_excess for following dates: {missing_months[:20]}")
+             # Find the rows where rm_proxy is NaN. Then, take the month_id column (ensure there are no duplicates) and make a list
+            missing_months = table4.loc[table4["rm_proxy"].isna(), "month_id"].drop_duplicates().tolist()
+            raise ValueError(f"[DEBUGGER] Missing rm_proxy or rm_excess for following dates: {missing_months[:20]}")
 
-    return table4.reset_index(drop = True), market_monthly.reset_index(drop = True) # Return also market_monthly for possible debugging/comparison in the future
+    # Add the regimes definition
+    table4 = add_regime_columns(table4, month_col="month_id")
+    market_monthly = add_regime_columns(market_monthly, month_col="month_id")
+
+    return table4.reset_index(drop=True), market_monthly.reset_index(drop=True) # Return also market_monthly for possible debugging/comparison in the future
 
 #==========================================================================================================
 # Creation of the function needed to save new tables in the project file
