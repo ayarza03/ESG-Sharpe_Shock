@@ -5,7 +5,9 @@
 # 2) Build Table 0 (universe)
 # 3) Build Table 1 (risk-free)
 # 4) Build Table 2 (returns + rolling Sharpe)
-# 5) Save outputs to data/processed/
+# 5) Build Table 3 (ESG snapshot restricted to Table 2 + success)
+# 6) Build Table 4 (final merged panel + market proxy)
+# 7) Save outputs to data/processed/
 # ==========================================================================================
 
 from pathlib import Path
@@ -15,16 +17,19 @@ import pandas as pd
 from src.data_loader import (
     load_sp500,
     load_tb3ms,
+    load_esg,
     build_table_0,
     build_table_1,
     build_table_2,
+    build_table_3,
+    build_table_4,
     save_table,
 )
 
 
 def main() -> None:
     # ----------------------------------------------------------
-    # 0) Paths (optional prints to confirm you run from repo root)
+    # 0) Confirm you run from repo root
     # ----------------------------------------------------------
     root = Path(__file__).resolve().parent
     print(f"Running from: {root}")
@@ -34,10 +39,12 @@ def main() -> None:
     # ----------------------------------------------------------
     sp500_raw = load_sp500("sp500_historical.csv")
     rf_raw = load_tb3ms("TB3MS.csv")
+    esg_raw = load_esg("ESG_info.csv")
 
     print("\nLoaded raw datasets:")
     print(f" - sp500_raw shape: {sp500_raw.shape}")
     print(f" - rf_raw shape:    {rf_raw.shape}")
+    print(f" - esg_raw shape:   {esg_raw.shape}")
 
     # ----------------------------------------------------------
     # 2) Build Table 0
@@ -50,7 +57,6 @@ def main() -> None:
     print(" - sample:")
     print(table0.head(5))
 
-    # Quick sanity check: 100 rows per month expected
     rows_per_month = table0.groupby("month_id").size()
     if (rows_per_month != 100).any():
         bad = rows_per_month[rows_per_month != 100].to_dict()
@@ -58,7 +64,6 @@ def main() -> None:
     else:
         print(" - OK: Table 0 has exactly 100 rows per month.")
 
-    # Save Table 0
     out0 = save_table(table0, "table_0.csv")
     print(f"Saved Table 0 to: {out0}")
 
@@ -72,7 +77,6 @@ def main() -> None:
     print(" - sample:")
     print(table1.head(5))
 
-    # Sanity checks: months align with Table 0
     missing_rf_months = sorted(set(table0["month_id"]) - set(table1["month_id"]))
     if missing_rf_months:
         print(f"[WARN] Table 1 is missing rf for month_id(s): {missing_rf_months[:10]} ...")
@@ -83,16 +87,25 @@ def main() -> None:
     print(f"Saved Table 1 to: {out1}")
 
     # ----------------------------------------------------------
-    # 4) Build Table 2 (Sharpe + coverage report)
+    # 4) Build Table 2 (returns + rolling Sharpe)
     # ----------------------------------------------------------
-    table2, coverage = build_table_2(table0, table1, window=12)
+    table2 = build_table_2(table0, table1, window=12)
+
+    nan_rate = table2["sharpe_12m"].isna().mean()
+    print(f"[CHECK] % NaN sharpe_12m (panel only): {nan_rate:.3%}")
+
+    nan_tickers = (
+        table2.loc[table2["sharpe_12m"].isna(), "ticker"]
+        .value_counts()
+        .head(15)
+    )
+    print("[CHECK] Top tickers with NaN sharpe_12m counts:\n", nan_tickers)
 
     print("\nTable 2 built:")
     print(f" - shape: {table2.shape}")
     print(" - sample:")
     print(table2.head(5))
 
-    # Sanity check: should have 100 tickers * number_of_months rows (minus rolling NaNs early on)
     months = table0["month_id"].nunique()
     unique_tickers = table0["ticker"].nunique()
     expected_max = unique_tickers * months
@@ -100,15 +113,48 @@ def main() -> None:
     print(f" - unique tickers in Table 0 (across all months): {unique_tickers}")
     print(f" - Table 2 rows (max possible): {expected_max}")
     print(f" - Table 2 rows (actual):       {len(table2)}")
+
     out2 = save_table(table2, "table_2.csv")
     print(f"Saved Table 2 to: {out2}")
 
-    out_cov = save_table(coverage, "coverage_report.csv")
-    print(f"Saved coverage report to: {out_cov}")
+    # ----------------------------------------------------------
+    # 5) Build Table 3 (ESG snapshot restricted to Table 2)
+    # ----------------------------------------------------------
+    # Your build_table_3 signature is: build_table_3(table2: pd.DataFrame, esg_raw: pd.DataFrame)
+    table3 = build_table_3(table2=table2, esg_raw=esg_raw)
 
-    # Print “worst coverage” tickers (useful to detect Yahoo ticker issues)
-    print("\nWorst 15 tickers by coverage:")
-    print(coverage.head(15))
+    print("\nTable 3 built (ESG snapshot restricted to Table 2):")
+    print(f" - shape: {table3.shape}")
+    print(" - sample:")
+    print(table3.head(5))
+
+    out3 = save_table(table3, "table_3.csv")
+    print(f"Saved Table 3 to: {out3}")
+
+    # ----------------------------------------------------------
+    # 6) Build Table 4 (final merged panel + market proxy)
+    # ----------------------------------------------------------
+    table4, market_monthly = build_table_4(table0, table2, table3)
+
+    print("\nTable 4 built (final panel):")
+    print(f" - shape: {table4.shape}")
+    print(" - sample:")
+    print(table4.head(5))
+
+    # Sanity: no NaNs in ESG columns in Table 4
+    esg_cols = ["esg_score", "environment_score", "social_score", "governance_score"]
+    if table4[esg_cols].isna().any().any():
+        raise ValueError("Unexpected NaNs in ESG columns in Table 4 after drop.")
+
+    # Sanity: market proxy exists for all rows
+    if table4["rm_proxy"].isna().any() or table4["rm_excess"].isna().any():
+        raise ValueError("Unexpected NaNs in rm_proxy / rm_excess in Table 4.")
+
+    out4 = save_table(table4, "table_4.csv")
+    print(f"Saved Table 4 to: {out4}")
+
+    outm = save_table(market_monthly, "market_proxy_monthly.csv")
+    print(f"Saved market proxy to: {outm}")
 
 
 if __name__ == "__main__":
